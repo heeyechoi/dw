@@ -31,20 +31,22 @@ blobCanvas.height = 1000;
 const blobCtx = blobCanvas.getContext("2d");
 
 canvas.addEventListener("click", (e) => {
-  const size = Math.random() * 600 + 200;
+  const size = Math.random() * 200 + 200; // 🔽 크기: 200~400
   currentBlob = {
     x: e.clientX,
     y: e.clientY,
     size: size,
     alpha: 1,
     growth: 1.005,
-    fade: 0.985
+    fade: 0.985,
+    circleRadius: 50  // 동그라미 잉크 시작 크기
   };
 });
 
 function drawBlob(blob) {
   blobCtx.clearRect(0, 0, blobCanvas.width, blobCanvas.height);
 
+  // 텍스트 렌더링
   blobCtx.save();
   blobCtx.fillStyle = `rgba(0, 0, 0, ${blob.alpha})`;
   blobCtx.font = `bold ${blob.size}px sans-serif`;
@@ -74,6 +76,12 @@ function drawBlob(blob) {
   ctx.globalAlpha = blob.alpha;
   ctx.drawImage(blobCanvas, dx, dy);
   ctx.globalAlpha = 1;
+
+  // 동그란 잉크 효과 추가
+  ctx.beginPath();
+  ctx.fillStyle = `rgba(0, 0, 0, ${blob.alpha * 0.15})`;
+  ctx.arc(blob.x, blob.y, blob.circleRadius, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function animate() {
@@ -82,8 +90,10 @@ function animate() {
 
   if (currentBlob) {
     drawBlob(currentBlob);
+
     currentBlob.size *= currentBlob.growth;
     currentBlob.alpha *= currentBlob.fade;
+    currentBlob.circleRadius *= 1.01; // 잉크 원도 퍼짐
 
     if (currentBlob.alpha < 0.01) currentBlob = null;
   }
