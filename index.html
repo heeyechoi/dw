@@ -2,17 +2,10 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>잉크 퍼짐 인터랙션</title>
+  <title>멍 잉크 퍼짐</title>
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: white;
-      overflow: hidden;
-    }
-    canvas {
-      display: block;
-    }
+    html, body { margin: 0; padding: 0; background: white; overflow: hidden; }
+    canvas { display: block; }
   </style>
 </head>
 <body>
@@ -25,47 +18,90 @@ canvas.height = window.innerHeight;
 
 const inkBlobs = [];
 
-function createInkBlob(x, y, amount = 400) {
+// 노이즈 캔버스 만들기
+const noiseCanvas = document.createElement("canvas");
+const noiseCtx = noiseCanvas.getContext("2d");
+noiseCanvas.width = canvas.width;
+noiseCanvas.height = canvas.height;
+
+function drawNoise() {
+  const imageData = noiseCtx.createImageData(noiseCanvas.width, noiseCanvas.height);
+  for (let i = 0; i < imageData.data.length; i += 4) {
+    const val = Math.random() * 50;
+    imageData.data[i] = val;
+    imageData.data[i+1] = val;
+    imageData.data[i+2] = val;
+    imageData.data[i+3] = 10; // 아주 약하게
+  }
+  noiseCtx.putImageData(imageData, 0, 0);
+  ctx.drawImage(noiseCanvas, 0, 0);
+}
+
+function createInkBlobInText(x, y, text = "멍", amount = 400) {
+  const fontSize = 180;
+  const tmpCanvas = document.createElement("canvas");
+  tmpCanvas.width = 300;
+  tmpCanvas.height = 300;
+  const tmpCtx = tmpCanvas.getContext("2d");
+
+  tmpCtx.fillStyle = "black";
+  tmpCtx.font = `bold ${fontSize}px sans-serif`;
+  tmpCtx.textBaseline = "middle";
+  tmpCtx.textAlign = "center";
+  tmpCtx.fillText(text, tmpCanvas.width/2, tmpCanvas.height/2);
+  const textData = tmpCtx.getImageData(0, 0, tmpCanvas.width, tmpCanvas.height).data;
+
   const particles = [];
   for (let i = 0; i < amount; i++) {
-    const angle = Math.random() * 2 * Math.PI;
-    const speed = Math.random() * 1.5;
-    const radius = Math.random() * 3 + 1;
+    const px = Math.floor(Math.random() * tmpCanvas.width);
+    const py = Math.floor(Math.random() * tmpCanvas.height);
+    const alpha = textData[(py * tmpCanvas.width + px) * 4 + 3];
+    if (alpha > 100) {
+      const angle = Math.random() * 2 * Math.PI;
+      const speed = Math.random() * 1.2;
+      const radius = Math.random() * 2 + 1;
 
-    const base = Math.random();
-    let color;
-    if (base < 0.4) color = `rgba(138, 43, 226, ALPHA)`;     // 보라
-    else if (base < 0.8) color = `rgba(255, 215, 0, ALPHA)`;  // 노랑
-    else color = `rgba(0, 0, 0, ALPHA)`;                      // 검정
+      const base = Math.random();
+      let color;
+      if (base < 0.4) color = `rgba(138, 43, 226, ALPHA)`;     // 보라
+      else if (base < 0.8) color = `rgba(255, 215, 0, ALPHA)`;  // 노랑
+      else color = `rgba(0, 0, 0, ALPHA)`;                      // 검정
 
-    particles.push({
-      x: x,
-      y: y,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      radius: radius,
-      alpha: 0,
-      targetAlpha: Math.random() * 0.6 + 0.3,
-      color: color
-    });
+      particles.push({
+        x: x + px - tmpCanvas.width/2,
+        y: y + py - tmpCanvas.height/2,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        radius: radius,
+        alpha: 0,
+        targetAlpha: Math.random() * 0.6 + 0.3,
+        color: color
+      });
+    }
   }
+
   inkBlobs.push(particles);
 }
 
 function animate() {
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  drawNoise();
 
   for (const blob of inkBlobs) {
     for (const p of blob) {
-      ctx.beginPath();
+      ctx.save();
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = p.color.replace("ALPHA", p.alpha.toFixed(2));
       ctx.fillStyle = p.color.replace("ALPHA", p.alpha.toFixed(2));
+      ctx.beginPath();
       ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
 
       p.x += p.vx;
       p.y += p.vy;
-
       if (p.alpha < p.targetAlpha) {
         p.alpha += 0.02;
       } else {
@@ -78,7 +114,7 @@ function animate() {
 }
 
 canvas.addEventListener("click", (e) => {
-  createInkBlob(e.clientX, e.clientY);
+  createInkBlobInText(e.clientX, e.clientY, "멍", 600);
 });
 
 animate();
