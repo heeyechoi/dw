@@ -32,7 +32,7 @@ blobCanvas.height = 1000;
 const blobCtx = blobCanvas.getContext("2d");
 
 canvas.addEventListener("click", (e) => {
-  const size = Math.random() * 350 + 50; // ✅ 최소 50px로 줄여 대비 크게
+  const size = Math.random() * 350 + 50;
   blobs.push({
     x: e.clientX,
     y: e.clientY,
@@ -42,7 +42,7 @@ canvas.addEventListener("click", (e) => {
     fade: 0.99,
     fadeIn: true,
     circleRadius: 50,
-    age: 0         // ⏱️ 잔상 삭제 타이머
+    age: 0
   });
 
   createParticles(e.clientX, e.clientY, 100);
@@ -66,14 +66,29 @@ function createParticles(x, y, count = 100) {
 function drawBlob(blob) {
   blobCtx.clearRect(0, 0, blobCanvas.width, blobCanvas.height);
 
-  // 잉크 원
+  // 퍼지는 원형 잉크에 노이즈 추가
   blobCtx.beginPath();
   blobCtx.fillStyle = `rgba(0, 0, 0, ${blob.alpha * 0.2})`;
   blobCtx.arc(blobCanvas.width / 2, blobCanvas.height / 2, blob.circleRadius, 0, Math.PI * 2);
   blobCtx.fill();
 
-  // 멍 글자 (노이즈 제거됨)
+  const circleImage = blobCtx.getImageData(0, 0, blobCanvas.width, blobCanvas.height);
+  const cd = circleImage.data;
+  for (let i = 0; i < cd.length; i += 4) {
+    const alpha = cd[i + 3];
+    if (alpha > 10 && Math.random() < 0.1) {
+      const noise = Math.random() * 60;
+      cd[i] = noise;
+      cd[i + 1] = noise;
+      cd[i + 2] = noise;
+    }
+  }
+  blobCtx.putImageData(circleImage, 0, 0);
+
+  // '멍' 글자 (흰색 + 블러 효과)
   blobCtx.save();
+  blobCtx.shadowColor = `rgba(255,255,255,${blob.alpha})`;
+  blobCtx.shadowBlur = 15;
   blobCtx.fillStyle = `rgba(255, 255, 255, ${blob.alpha})`;
   blobCtx.font = `bold ${blob.size}px sans-serif`;
   blobCtx.textAlign = 'center';
@@ -91,10 +106,14 @@ function drawBlob(blob) {
 function drawParticles() {
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
+    ctx.save();
+    ctx.shadowColor = `rgba(0,0,0,${p.alpha})`;
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = `rgba(0,0,0,${p.alpha})`;
     ctx.beginPath();
-    ctx.fillStyle = `rgba(0, 0, 0, ${p.alpha})`;
     ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
 
     p.x += p.vx;
     p.y += p.vy;
@@ -105,8 +124,7 @@ function drawParticles() {
 }
 
 function animate() {
-  // ✅ 잔상 유지 후 사라지도록 설정
-  ctx.fillStyle = 'rgba(255,255,255,0.08)'; // 0.03 → 0.08로 조금 더 강하게 사라짐
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   for (let i = blobs.length - 1; i >= 0; i--) {
@@ -126,8 +144,6 @@ function animate() {
     }
 
     blob.age++;
-
-    // 일정 시간 후 삭제 (약 5초 후)
     if (blob.age > 300 && blob.alpha < 0.05) {
       blobs.splice(i, 1);
     }
