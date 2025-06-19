@@ -23,30 +23,29 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// 여러 멍을 남기기 위한 리스트
 const blobs = [];
 const particles = [];
 
-// 잉크 + 글자 그리는 임시 캔버스
 const blobCanvas = document.createElement("canvas");
 blobCanvas.width = 1000;
 blobCanvas.height = 1000;
 const blobCtx = blobCanvas.getContext("2d");
 
 canvas.addEventListener("click", (e) => {
-  const size = Math.random() * 200 + 200;
+  const size = Math.random() * 350 + 50; // ✅ 최소 50px로 줄여 대비 크게
   blobs.push({
     x: e.clientX,
     y: e.clientY,
     size: size,
-    alpha: 0.01,                 // 처음은 흐릿하게 시작 → fade-in
+    alpha: 0.01,
     growth: 1.003,
     fade: 0.99,
     fadeIn: true,
-    circleRadius: 50
+    circleRadius: 50,
+    age: 0         // ⏱️ 잔상 삭제 타이머
   });
 
-  createParticles(e.clientX, e.clientY, 100); // 주변 입자 생성
+  createParticles(e.clientX, e.clientY, 100);
 });
 
 function createParticles(x, y, count = 100) {
@@ -57,7 +56,7 @@ function createParticles(x, y, count = 100) {
       x: x,
       y: y,
       vx: Math.cos(angle) * speed * 0.5,
-      vy: Math.sin(angle) * speed * 0.5 + Math.random() * 1, // 아래로 흘러내리듯
+      vy: Math.sin(angle) * speed * 0.5 + Math.random() * 1,
       radius: Math.random() * 1.5 + 0.5,
       alpha: 1
     });
@@ -67,13 +66,13 @@ function createParticles(x, y, count = 100) {
 function drawBlob(blob) {
   blobCtx.clearRect(0, 0, blobCanvas.width, blobCanvas.height);
 
-  // 먹물 얼룩 배경
+  // 잉크 원
   blobCtx.beginPath();
   blobCtx.fillStyle = `rgba(0, 0, 0, ${blob.alpha * 0.2})`;
   blobCtx.arc(blobCanvas.width / 2, blobCanvas.height / 2, blob.circleRadius, 0, Math.PI * 2);
   blobCtx.fill();
 
-  // 글자
+  // 멍 글자 (노이즈 제거됨)
   blobCtx.save();
   blobCtx.fillStyle = `rgba(255, 255, 255, ${blob.alpha})`;
   blobCtx.font = `bold ${blob.size}px sans-serif`;
@@ -81,23 +80,6 @@ function drawBlob(blob) {
   blobCtx.textBaseline = 'middle';
   blobCtx.fillText("멍", blobCanvas.width / 2, blobCanvas.height / 2);
   blobCtx.restore();
-
-  // 텍스트 내부 노이즈 효과
-  const imageData = blobCtx.getImageData(0, 0, blobCanvas.width, blobCanvas.height);
-  const data = imageData.data;
-
-  for (let i = 0; i < data.length; i += 4) {
-    const alpha = data[i + 3];
-    if (alpha > 20 && Math.random() < 0.2) {
-      const noise = Math.random() * 80;
-      data[i] = noise;
-      data[i + 1] = noise;
-      data[i + 2] = noise;
-      data[i + 3] = Math.min(255, alpha + 40);
-    }
-  }
-
-  blobCtx.putImageData(imageData, 0, 0);
 
   const dx = blob.x - blobCanvas.width / 2;
   const dy = blob.y - blobCanvas.height / 2;
@@ -123,11 +105,12 @@ function drawParticles() {
 }
 
 function animate() {
-  // 흰 배경에 잔상 남기기
-  ctx.fillStyle = 'rgba(255,255,255,0.03)';
+  // ✅ 잔상 유지 후 사라지도록 설정
+  ctx.fillStyle = 'rgba(255,255,255,0.08)'; // 0.03 → 0.08로 조금 더 강하게 사라짐
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  for (const blob of blobs) {
+  for (let i = blobs.length - 1; i >= 0; i--) {
+    const blob = blobs[i];
     drawBlob(blob);
 
     blob.size *= blob.growth;
@@ -140,6 +123,13 @@ function animate() {
       }
     } else {
       blob.alpha *= blob.fade;
+    }
+
+    blob.age++;
+
+    // 일정 시간 후 삭제 (약 5초 후)
+    if (blob.age > 300 && blob.alpha < 0.05) {
+      blobs.splice(i, 1);
     }
   }
 
